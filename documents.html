@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SigDocIn — Документы</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">Документы</h1>
+
+    <div class="flex border-b border-gray-200 dark:border-gray-700 mb-8">
+      <button data-tab="outgoing" class="tab-btn px-6 py-4 font-medium text-gray-600 dark:text-gray-300 border-b-2 border-transparent hover:border-blue-500 focus:outline-none active-tab">Исходящие</button>
+      <button data-tab="incoming" class="tab-btn px-6 py-4 font-medium text-gray-600 dark:text-gray-300 border-b-2 border-transparent hover:border-blue-500 focus:outline-none">Входящие</button>
+      <button data-tab="signed"   class="tab-btn px-6 py-4 font-medium text-gray-600 dark:text-gray-300 border-b-2 border-transparent hover:border-blue-500 focus:outline-none">Подписанные</button>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border border-gray-200 dark:border-gray-700 mb-12">
+      <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Отправить документ на подпись</h2>
+      <form id="sendDocForm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div>
+            <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Название / описание</label>
+            <input type="text" id="docTitle" placeholder="Договор / Приказ / Заявление" required
+                   class="w-full px-5 py-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Телефон получателя</label>
+            <input type="tel" id="docRecipient" placeholder="+7 (___) ___-__-__" required
+                   class="w-full px-5 py-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Файл документа (PDF)</label>
+          <input type="file" id="docFile" accept=".pdf" class="w-full px-4 py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300">
+          <div id="filePreview" class="mt-4 hidden">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Предпросмотр:</p>
+            <object id="pdfPreview" data="" type="application/pdf" class="w-full h-96 border border-gray-300 dark:border-gray-600 rounded-xl"></object>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-xl text-lg font-bold transition shadow-md hover:shadow-lg">
+          Отправить на подпись
+        </button>
+      </form>
+    </div>
+
+    <div id="documentsContainer" class="space-y-6"></div>
+  </main>
+
+  <div id="toast" class="hidden"></div>
+
+  <script src="script.js"></script>
+  <script>
+    const user = getCurrentUser();
+    const isDirector = user?.role === 'director';
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab', 'border-blue-500', 'text-blue-600', 'dark:text-blue-400'));
+        btn.classList.add('active-tab', 'border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+        renderDocuments(btn.dataset.tab);
+      });
+    });
+
+    document.getElementById('docFile').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file && file.type === 'application/pdf') {
+        const url = URL.createObjectURL(file);
+        document.getElementById('pdfPreview').data = url;
+        document.getElementById('filePreview').classList.remove('hidden');
+      } else {
+        showToast('Пожалуйста, загрузите PDF-файл', 'error');
+      }
+    });
+
+    function renderDocuments(tab = 'outgoing') {
+      const container = document.getElementById('documentsContainer');
+      let docs = getDocuments();
+
+      // Фильтр по роли
+      if (!isDirector) {
+        docs = docs.filter(d => d.sender === user.phone || d.recipient === user.phone);
+      }
+
+      if (tab === 'outgoing') {
+        docs = docs.filter(d => d.sender === user.phone);
+      } else if (tab === 'incoming') {
+        docs = docs.filter(d => d.recipient === user.phone && d.status === 'waiting');
+      } else if (tab === 'signed') {
+        docs = docs.filter(d => d.status === 'signed');
+      }
+
+      container.innerHTML = docs.length ? docs.map(d => `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow border border-gray-200 dark:border-gray-700">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 dark:text-white">${d.title}</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                ${d.sender ? `От: ${d.sender}` : ''} → ${d.recipient}
+                ${d.signedAt ? ` • Подписан: ${d.signedAt}` : ''}
+              </p>
+            </div>
+            <span class="px-4 py-1 rounded-full text-sm font-medium ${
+              d.status === 'signed' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' :
+              d.status === 'waiting' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' : ''
+            }">
+              ${d.status === 'signed' ? 'Подписан' : 'Ожидает'}
+            </span>
+          </div>
+          ${d.status === 'waiting' && d.recipient === user.phone ? `
+            <a href="sign.html?id=${d.id}" class="mt-4 inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-medium transition">
+              Подписать
+            </a>
+          ` : ''}
+        </div>
+      `).join('') : '<p class="text-center py-16 text-gray-500 dark:text-gray-400">Нет документов в этой категории</p>';
+    }
+
+    document.getElementById('sendDocForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const title = document.getElementById('docTitle').value.trim();
+      const recipient = document.getElementById('docRecipient').value.trim();
+      const fileInput = document.getElementById('docFile');
+
+      if (!title || !recipient) {
+        showToast('Заполните все поля', 'error');
+        return;
+      }
+
+      const docs = getDocuments();
+      docs.push({
+        id: Date.now().toString(),
+        title,
+        sender: user.phone,
+        recipient,
+        status: 'waiting',
+        created: new Date().toLocaleString('ru-RU'),
+        fileName: fileInput.files[0]?.name || 'без файла'
+      });
+      saveDocuments(docs);
+
+      showToast('Документ отправлен на подпись');
+      renderDocuments('outgoing');
+      e.target.reset();
+      document.getElementById('filePreview').classList.add('hidden');
+    });
+
+    // Первичный рендер (по умолчанию — Исходящие)
+    document.querySelector('[data-tab="outgoing"]').classList.add('active-tab', 'border-blue-500', 'text-blue-600', 'dark:text-blue-400');
+    renderDocuments('outgoing');
+  </script>
+</body>
+</html>

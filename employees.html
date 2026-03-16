@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SigDocIn — Сотрудники</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    <a href="organizations.html" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:underline mb-6">
+      ← Назад к организациям
+    </a>
+
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">Сотрудники</h1>
+
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border border-gray-200 dark:border-gray-700 mb-10">
+      <h2 class="text-2xl font-bold mb-6 text-gray-800 dark:text-white">Добавить сотрудника</h2>
+      <form id="addEmployeeForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">ФИО</label>
+          <input type="text" id="empName" required class="w-full px-5 py-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Телефон</label>
+          <input type="tel" id="empPhone" required class="w-full px-5 py-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        </div>
+        <div>
+          <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Роль</label>
+          <select id="empRole" class="w-full px-5 py-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+            <option value="employee">Сотрудник</option>
+            <option value="hr">Кадры (HR)</option>
+            <option value="manager">Руководитель отдела</option>
+            <option value="director">Директор</option>
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-xl font-bold transition">
+            Добавить сотрудника
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <h2 class="text-2xl font-bold mb-6 text-gray-900 dark:text-white">Список сотрудников</h2>
+    <div id="empList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </main>
+
+  <div id="toast" class="hidden"></div>
+
+  <script src="script.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(location.search);
+    const orgId = urlParams.get('org');
+    if (!orgId) location.href = 'organizations.html';
+
+    const currentUser = getCurrentUser();
+    const canSeeAll = currentUser?.role === 'director' || currentUser?.role === 'hr';
+
+    function renderEmployees() {
+      const list = document.getElementById('empList');
+      let emps = getEmployees(orgId);
+
+      if (!canSeeAll) {
+        emps = emps.filter(e => e.phone === currentUser.phone);
+      }
+
+      list.innerHTML = emps.length ? emps.map(e => `
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow border border-gray-200 dark:border-gray-700">
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white">${e.name}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+            ${e.phone} • <span class="font-medium">${{
+              employee: 'Сотрудник',
+              hr: 'Кадры',
+              manager: 'Руководитель',
+              director: 'Директор'
+            }[e.role]}</span>
+          </p>
+        </div>
+      `).join('') : '<p class="text-center py-12 text-gray-500 dark:text-gray-400 col-span-full">Список пуст</p>';
+    }
+
+    document.getElementById('addEmployeeForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const name  = document.getElementById('empName').value.trim();
+      const phone = document.getElementById('empPhone').value.trim();
+      const role  = document.getElementById('empRole').value;
+
+      if (!name || !phone) return;
+
+      const emps = getEmployees(orgId);
+      emps.push({ id: Date.now().toString(), name, phone, role });
+      saveEmployees(orgId, emps);
+
+      showToast('Сотрудник добавлен');
+      renderEmployees();
+      e.target.reset();
+    });
+
+    renderEmployees();
+  </script>
+</body>
+</html>

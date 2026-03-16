@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SigDocIn — Подпись документа</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-b from-gray-50 to-white min-h-screen flex items-center justify-center">
+  <div class="max-w-lg w-full px-6 py-12 animate-fade-in">
+    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+      <div class="bg-blue-600 text-white py-6 px-8 text-center">
+        <h1 class="text-3xl font-bold">SigDocIn</h1>
+        <p class="text-blue-100 mt-1 text-sm font-medium">SDI • Подпись по номеру телефона</p>
+      </div>
+
+      <div class="p-8">
+        <div class="text-center mb-10">
+          <div class="inline-block bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
+            <i class="fas fa-shield-alt mr-2"></i>Безопасная подпись
+          </div>
+          <h2 class="text-2xl font-bold text-gray-800 mb-3">Подтвердите документ</h2>
+          <p class="text-gray-600">Документ: <span id="docTitle" class="font-semibold text-gray-900"></span></p>
+        </div>
+
+        <div class="bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-200">
+          <p class="text-center text-gray-700 mb-4">
+            Подпись будет сгенерирована на основе вашего номера телефона
+          </p>
+          <p class="text-center text-sm text-gray-500">
+            Код отправлен на <strong id="recipientPhone" class="text-gray-900"></strong>
+          </p>
+        </div>
+
+        <form id="signForm" class="space-y-6">
+          <div>
+            <label for="code" class="block text-gray-700 font-medium mb-3 text-center">
+              Введите 4-значный код из SMS
+            </label>
+            <input 
+              type="text" 
+              id="code" 
+              placeholder="••••" 
+              maxlength="4" 
+              required
+              pattern="\d{4}"
+              inputmode="numeric"
+              class="w-full px-6 py-5 text-4xl text-center font-mono border-2 border-gray-300 rounded-2xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all"
+            >
+          </div>
+
+          <button 
+            type="submit" 
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-2xl text-xl font-bold transition-all shadow-md hover:shadow-lg active:scale-98"
+          >
+            Подписать документ
+          </button>
+        </form>
+
+        <p class="text-center text-sm text-gray-500 mt-8">
+          <i class="fas fa-lock mr-1"></i> Подтверждение защищено шифрованием
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-600 text-white px-8 py-4 rounded-2xl shadow-2xl z-50"></div>
+
+  <script src="script.js"></script>
+  <script>
+    document.body.classList.add('opacity-0');
+    setTimeout(() => document.body.classList.remove('opacity-0'), 100);
+
+    const urlParams = new URLSearchParams(location.search);
+    const docId = urlParams.get('id');
+
+    if (!docId) {
+      location.href = 'documents.html';
+      return;
+    }
+
+    const docs = getDocuments();
+    const doc = docs.find(d => d.id === docId);
+
+    if (!doc) {
+      location.href = 'documents.html';
+      return;
+    }
+
+    document.getElementById('docTitle').textContent = doc.title;
+    document.getElementById('recipientPhone').textContent = doc.recipient;
+
+    document.getElementById('signForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const code = document.getElementById('code').value.trim();
+
+      if (code.length === 4 && /^\d{4}$/.test(code)) {
+        doc.status = 'signed';
+        doc.signedAt = new Date().toLocaleString('ru-RU');
+        saveDocuments(docs);
+        
+        showToast('Документ успешно подписан!', 'success');
+        
+        setTimeout(() => {
+          location.href = 'documents.html';
+        }, 1800);
+      } else {
+        showToast('Неверный код. Попробуйте снова.', 'error');
+        document.getElementById('code').value = '';
+        document.getElementById('code').focus();
+      }
+    });
+  </script>
+
+  <style>
+    /* Плавное появление страницы */
+    body {
+      transition: opacity 0.6s ease-out;
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.8s ease-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</body>
+</html>
