@@ -82,7 +82,6 @@
       const container = document.getElementById('documentsContainer');
       let docs = getDocuments();
 
-      // Фильтр по роли
       if (!isDirector) {
         docs = docs.filter(d => d.sender === user.phone || d.recipient === user.phone);
       }
